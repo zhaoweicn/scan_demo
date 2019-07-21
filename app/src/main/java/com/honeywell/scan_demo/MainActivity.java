@@ -220,12 +220,16 @@ public class MainActivity extends AppCompatActivity {
                     while (true){
                         if (client.isConnected()){
                             if (!client.isInputShutdown()){
-                                if ((content=bufferedReader.readLine())!=null){
+                                String temp = bufferedReader.readLine();
+                                if (temp=="START"){
+
+                                }
+                                /*if ((content=bufferedReader.readLine())!=null){
                                     content += "\n";
                                     mhandler.sendMessage(mhandler.obtainMessage());
                                 }else{
 
-                                }
+                                }*/
                             }
                         }
                     }
