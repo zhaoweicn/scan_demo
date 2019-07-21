@@ -1,15 +1,28 @@
 package com.honeywell.scan_demo;
 
+import android.annotation.SuppressLint;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Message;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
+import android.widget.Toast;
+
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
+import java.net.Socket;
+import java.net.SocketException;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -36,21 +49,32 @@ public class MainActivity extends AppCompatActivity {
     private static final String Zebra = "Zebra";
 
     private TextView textview;
+    private TextView tvResult;
     private Button button;
     private String BRAND="";
+
+    // SOCKET相关设置，服务器IP，端口等信息
+    private static final String HOST = "192.168.1.18";
+    private static final int PORT = 8899;
+    private Socket client = null;
+    private BufferedReader bufferedReader = null;
+    private PrintWriter printWriter = null;
+    private String content = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        initSocket();
         textview = findViewById(R.id.textview);
+        tvResult = findViewById(R.id.tvResult);
         button = findViewById(R.id.button);
         button.setText("Start Scan");
         button.setOnClickListener(new View.OnClickListener(){
             @Override
             public void onClick(View v){
-                sendBroadcast(new Intent(EXTRA_CONTROL).putExtra(EXTRA_SCAN, true));
+                //sendBroadcast(new Intent(EXTRA_CONTROL).putExtra(EXTRA_SCAN, true));
             }
         });
         BRAND = Build.BRAND;
@@ -104,6 +128,13 @@ public class MainActivity extends AppCompatActivity {
                 data = intent.getStringExtra(HONEYWELL_DATA_STRING_TAG);
             }
             setText(data);
+            if (client.isConnected()){
+                if (!client.isOutputShutdown()){
+                    Toast.makeText(MainActivity.this, "正在发送，请稍等......", Toast.LENGTH_LONG).show();
+                    sendMsg("BEGIN");
+                    Recv();
+                }
+            }
             /*if (ACTION_BARCODE_DATA.equals(intent.getAction())){
                 int version = intent.getIntExtra("version",0);
                 if (version>=1){
@@ -151,4 +182,65 @@ public class MainActivity extends AppCompatActivity {
         }
         return s;
     }
+
+    // SOCKET 通讯函数
+    public void initSocket(){
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try{
+                    client = new Socket(HOST, PORT);
+                    bufferedReader = new BufferedReader(new InputStreamReader(client.getInputStream()));
+                    printWriter = new PrintWriter(new BufferedWriter(new OutputStreamWriter(client.getOutputStream())), true);
+                }catch (Exception e){
+                    e.printStackTrace();
+                }
+            }
+        }).start();
+    }
+
+    public void sendMsg(final String msg){
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                if (client.isConnected()){
+                    if (!client.isOutputShutdown()){
+                        printWriter.println(msg);
+                    }
+                }
+            }
+        }).start();
+    }
+
+    public void Recv(){
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try{
+                    while (true){
+                        if (client.isConnected()){
+                            if (!client.isInputShutdown()){
+                                if ((content=bufferedReader.readLine())!=null){
+                                    content += "\n";
+                                    mhandler.sendMessage(mhandler.obtainMessage());
+                                }else{
+
+                                }
+                            }
+                        }
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }).start();
+    }
+
+    @SuppressLint("HandlerLeak")
+    public Handler mhandler = new Handler(){
+        public void handleMessage(Message msg){
+            super.handleMessage(msg);
+            textview.setText(content);
+        }
+    };
 }
