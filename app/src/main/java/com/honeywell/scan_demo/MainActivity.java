@@ -19,6 +19,7 @@ import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.net.Socket;
@@ -54,19 +55,22 @@ public class MainActivity extends AppCompatActivity {
     private String BRAND="";
 
     // SOCKET相关设置，服务器IP，端口等信息
-    private static final String HOST = "192.168.1.18";
+    private static final String HOST = "192.168.1.153";
     private static final int PORT = 8899;
     private Socket client = null;
     private BufferedReader bufferedReader = null;
+    private OutputStream outputStream = null;
     private PrintWriter printWriter = null;
     private String content = "";
+    private Boolean isConnected = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        initSocket();
+        //initSocket();
+        Receive();
         textview = findViewById(R.id.textview);
         tvResult = findViewById(R.id.tvResult);
         button = findViewById(R.id.button);
@@ -128,13 +132,14 @@ public class MainActivity extends AppCompatActivity {
                 data = intent.getStringExtra(HONEYWELL_DATA_STRING_TAG);
             }
             setText(data);
-            if (client.isConnected()){
+            sendMsg(data);
+
+            /*if (client.isConnected()){
                 if (!client.isOutputShutdown()){
                     Toast.makeText(MainActivity.this, "正在发送，请稍等......", Toast.LENGTH_LONG).show();
-                    sendMsg("BEGIN");
-                    Recv();
+                    Receive();
                 }
-            }
+            }*/
             /*if (ACTION_BARCODE_DATA.equals(intent.getAction())){
                 int version = intent.getIntExtra("version",0);
                 if (version>=1){
@@ -161,12 +166,23 @@ public class MainActivity extends AppCompatActivity {
         }
     };
 
-    private void setText(final String text){
+    private void setMsgText(final String text){
         if (textview!=null){
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
                     textview.setText(text);
+                }
+            });
+        }
+    }
+
+    private void setText(final String text){
+        if (tvResult!=null){
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    tvResult.setText(text);
                 }
             });
         }
@@ -199,45 +215,70 @@ public class MainActivity extends AppCompatActivity {
         }).start();
     }
 
-    public void sendMsg(final String msg){
+    public void sendMsg(final String data){
         new Thread(new Runnable() {
             @Override
             public void run() {
-                if (client.isConnected()){
-                    if (!client.isOutputShutdown()){
-                        printWriter.println(msg);
-                    }
+                try {
+                    outputStream.write(data.getBytes());
+                }catch (Exception e){
+                    setMsgText(e.getMessage());
+                    e.printStackTrace();
                 }
             }
         }).start();
     }
 
-    public void Recv(){
+    public void Receive(){
         new Thread(new Runnable() {
             @Override
             public void run() {
                 try{
                     while (true){
-                        if (client.isConnected()){
-                            if (!client.isInputShutdown()){
-                                String temp = bufferedReader.readLine();
-                                if (temp=="START"){
+                        if ((client==null) || (!client.isConnected())){
+                            client = new Socket(HOST, PORT);
+                        }
+                        if ((!client.isOutputShutdown() && !isConnected)){
+                            bufferedReader = new BufferedReader(new InputStreamReader(client.getInputStream()));
+                            outputStream = client.getOutputStream();
+                            String data = "BEGIN";
+                            outputStream.write(data.getBytes());
+                            //printWriter = new PrintWriter(new BufferedWriter(new OutputStreamWriter(client.getOutputStream())), true);
+                            //printWriter.println("BEGIN");
+                        }
+                        String temp = bufferedReader.readLine();
+                        if (temp.equals("START")){
+                            isConnected = true;
+                            setMsgText("服务端连接成功。");
 
-                                }
-                                /*if ((content=bufferedReader.readLine())!=null){
-                                    content += "\n";
-                                    mhandler.sendMessage(mhandler.obtainMessage());
-                                }else{
+                        }else if(temp.equals("OK")){
+                            isConnected = true;
+                            setMsgText("数据发送成功！");
 
-                                }*/
-                            }
+                        } else{
+                            isConnected = false;
+                            setMsgText("服务端已关闭，无法上传数据!");
+
                         }
                     }
                 } catch (IOException e) {
+                    isConnected = false;
+                    setMsgText("服务端没有开启，请开启服务端程序。");
                     e.printStackTrace();
                 }
             }
         }).start();
+    }
+
+    @Override
+    public void onBackPressed(){
+        super.onBackPressed();
+        try{
+            outputStream.close();
+            client.close();
+        }catch (IOException e){
+            e.printStackTrace();
+        }
     }
 
     @SuppressLint("HandlerLeak")
