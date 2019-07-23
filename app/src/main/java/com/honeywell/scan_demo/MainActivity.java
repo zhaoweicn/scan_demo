@@ -10,6 +10,7 @@ import android.os.Handler;
 import android.os.Message;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.view.KeyEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
@@ -271,6 +272,27 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event){
+        if (keyCode==KeyEvent.KEYCODE_BACK && event.getRepeatCount()==0){
+            try{
+                if (outputStream!=null) {
+                    outputStream.close();
+                    outputStream = null;
+                }
+                if (client!=null) {
+                    client.close();
+                    client = null;
+                }
+            }catch (IOException e){
+                e.printStackTrace();
+            }
+            System.exit(0);
+            return false;
+        }
+        return super.onKeyDown(keyCode, event);
+    }
+
+    /*@Override
     public void onBackPressed(){
         super.onBackPressed();
         try{
@@ -279,7 +301,7 @@ public class MainActivity extends AppCompatActivity {
         }catch (IOException e){
             e.printStackTrace();
         }
-    }
+    }*/
 
     @SuppressLint("HandlerLeak")
     public Handler mhandler = new Handler(){
