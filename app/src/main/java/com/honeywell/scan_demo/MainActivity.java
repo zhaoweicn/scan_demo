@@ -56,12 +56,11 @@ public class MainActivity extends AppCompatActivity {
     private String BRAND="";
 
     // SOCKET相关设置，服务器IP，端口等信息
-    private static final String HOST = "192.168.1.153";
+    private static final String HOST = "192.168.1.18";
     private static final int PORT = 8899;
     private Socket client = null;
     private BufferedReader bufferedReader = null;
     private OutputStream outputStream = null;
-    private PrintWriter printWriter = null;
     private String content = "";
     private Boolean isConnected = false;
 
@@ -208,7 +207,7 @@ public class MainActivity extends AppCompatActivity {
                 try{
                     client = new Socket(HOST, PORT);
                     bufferedReader = new BufferedReader(new InputStreamReader(client.getInputStream()));
-                    printWriter = new PrintWriter(new BufferedWriter(new OutputStreamWriter(client.getOutputStream())), true);
+                    //printWriter = new PrintWriter(new BufferedWriter(new OutputStreamWriter(client.getOutputStream())), true);
                 }catch (Exception e){
                     e.printStackTrace();
                 }
