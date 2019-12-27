@@ -1,18 +1,31 @@
 package com.honeywell.scan_demo;
 
+import android.animation.ArgbEvaluator;
+import android.animation.ObjectAnimator;
+import android.animation.ValueAnimator;
 import android.annotation.SuppressLint;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.ColorFilter;
+import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.Drawable;
 import android.os.Build;
+import android.os.CountDownTimer;
 import android.os.Handler;
 import android.os.Message;
+import android.os.Vibrator;
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.KeyEvent;
 import android.view.View;
 import android.widget.Button;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -23,6 +36,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
+import java.net.ContentHandler;
 import java.net.Socket;
 import java.net.SocketException;
 
@@ -53,7 +67,11 @@ public class MainActivity extends AppCompatActivity {
     private TextView textview;
     private TextView tvResult;
     private Button button;
+    private Button btnVibrator=null;
     private String BRAND="";
+    private LinearLayout lymain=null;
+
+    Vibrator vibrator;
 
     // SOCKET相关设置，服务器IP，端口等信息
     private static final String HOST = "192.168.1.18";
@@ -63,6 +81,19 @@ public class MainActivity extends AppCompatActivity {
     private OutputStream outputStream = null;
     private String content = "";
     private Boolean isConnected = false;
+    private Boolean isStart = false;
+
+    private int colors [] = {Color.parseColor("#1E90FF"),Color.parseColor("#FFFF00")};
+    private CountDownTimer timer;
+    private long time = 1500;
+
+    private static final int RED = 0xffff0000;
+    private static final int BLUE = 0xff8080FF;
+    private static final int CYAN = 0xff80ffff;
+    private static final int GREEN = 0xff80ff80;
+    private static final int WHITE = 0xffffffff;
+
+    ValueAnimator colorAnim=null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -71,6 +102,8 @@ public class MainActivity extends AppCompatActivity {
 
         //initSocket();
         Receive();
+        lymain = findViewById(R.id.lymain);
+        lymain.setBackgroundColor(Color.WHITE);
         textview = findViewById(R.id.textview);
         tvResult = findViewById(R.id.tvResult);
         button = findViewById(R.id.button);
@@ -81,8 +114,67 @@ public class MainActivity extends AppCompatActivity {
                 //sendBroadcast(new Intent(EXTRA_CONTROL).putExtra(EXTRA_SCAN, true));
             }
         });
+//
+        final Handler handler = new Handler();
+        final Runnable runnable = new Runnable() {
+            @Override
+            public void run() {
+
+                if (isStart) {
+                    ValueAnimator colorAnim = ObjectAnimator.ofInt(lymain, "backgroundColor", RED, BLUE);
+                    colorAnim.setDuration(1000);
+                    colorAnim.setEvaluator(new ArgbEvaluator());
+                    colorAnim.setRepeatCount(ValueAnimator.INFINITE);
+                    colorAnim.setRepeatMode(ValueAnimator.REVERSE);
+                    colorAnim.start();
+                }else{
+                    ValueAnimator colorAnim = ObjectAnimator.ofInt(lymain, "backgroundColor", WHITE, WHITE);
+                    colorAnim.start();
+                }
+            }
+        };
+
+
+        btnVibrator = findViewById(R.id.btnVibrator);
+        btnVibrator.setText("START");
+        btnVibrator.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (btnVibrator.getText()=="START") {
+                    vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+                    long[] pattern = {100, 400, 100, 400};
+                    vibrator.vibrate(pattern, 2);
+                    btnVibrator.setText("STOP");
+                    Start();
+                }else if (btnVibrator.getText()=="STOP"){
+                    vibrator.cancel();
+                    Stop();
+                    btnVibrator.setText("START");
+                }
+            }
+        });
+
         BRAND = Build.BRAND;
         textview.setText(BRAND);
+    }
+
+    private void Start(){
+        colorAnim = ObjectAnimator.ofInt(lymain, "backgroundColor", RED, WHITE);
+        colorAnim.setDuration(1000);
+        colorAnim.setEvaluator(new ArgbEvaluator());
+        colorAnim.setRepeatCount(ValueAnimator.INFINITE);
+        colorAnim.setRepeatMode(ValueAnimator.REVERSE);
+        colorAnim.start();
+    }
+
+    private void Stop(){
+        if (colorAnim!=null && colorAnim.isRunning()){
+//            colorAnim = ObjectAnimator.ofInt(lymain, "backgroundColor", WHITE, WHITE);
+            lymain.setBackgroundColor(Color.WHITE);
+            colorAnim.reverse();
+            colorAnim.cancel();
+            colorAnim = null;
+        }
     }
 
     @Override
